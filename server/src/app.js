@@ -19,6 +19,7 @@ const notificationRoutes = require('./routes/notifications');
 
 const adminRoutes = require('./routes/adminRoutes');
 const publicRoutes = require('./routes/public');
+const { csrfTokenHandler, verifyCsrfToken } = require('./middleware/csrf');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
@@ -70,6 +71,10 @@ app.use(session({
 }));
 
 app.use(passport.initialize());
+
+// ── CSRF Protection ───────────────────────────────────────────────────────────
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use('/api', verifyCsrfToken);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
