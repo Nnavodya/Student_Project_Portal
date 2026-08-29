@@ -6,6 +6,16 @@ const { signToken, signRefreshToken, setTokenCookies, clearTokenCookies } = requ
 const { sendEmail } = require('../utils/email');
 
 
+const escapeHtml = (unsafe) => {
+  if (typeof unsafe !== 'string') return '';
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 // ── Google OAuth callback (shared by all flows) ──────────────────────────────
 const handleGoogleCallback = (req, res) => {
   // Passport uses callback-style auth in the route, so req.user is set on success.
@@ -184,10 +194,13 @@ const registerLocal = async (req, res) => {
     );
     
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
-    
+
+    // SECURITY FIX: escape user-supplied "name" before interpolating into HTML email
+    const safeName = escapeHtml(name);
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome to UOK Connect, ${name}!</h2>
+        <h2>Welcome to UOK Connect, ${safeName}!</h2>
         <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${verificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Verify Email Address</a>

@@ -2,6 +2,18 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiHeart, FiEye, FiGithub, FiExternalLink, FiCode } from 'react-icons/fi';
 
+// SECURITY FIX: only allow http:/https: URLs to be rendered as links.
+// Blocks "javascript:" and other dangerous URI schemes (Stored XSS).
+const isSafeUrl = (url) => {
+  if (typeof url !== 'string' || !url.trim()) return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export default function ProjectCard({ project, index = 0 }) {
   return (
     <motion.div
@@ -73,14 +85,14 @@ export default function ProjectCard({ project, index = 0 }) {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {project.github_url && (
+            {isSafeUrl(project.github_url) && (
               <a href={project.github_url} target="_blank" rel="noopener noreferrer"
                 className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
                 onClick={(e) => e.stopPropagation()}>
                 <FiGithub size={14} />
               </a>
             )}
-            {project.demo_url && (
+            {isSafeUrl(project.demo_url) && (
               <a href={project.demo_url} target="_blank" rel="noopener noreferrer"
                 className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
                 onClick={(e) => e.stopPropagation()}>
