@@ -1,12 +1,12 @@
 const jwt = require('jsonwebtoken');
 
 const signToken = (userId) =>
-  jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+  jwt.sign({ id: userId, purpose: 'access' }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '15m',
   });
 
 const signRefreshToken = (userId) =>
-  jwt.sign({ id: userId, isRefreshToken: true }, process.env.JWT_SECRET, {
+  jwt.sign({ id: userId, isRefreshToken: true, purpose: 'refresh' }, process.env.JWT_SECRET, {
     expiresIn: '24h',
   });
 

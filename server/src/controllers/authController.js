@@ -308,7 +308,7 @@ const refresh = async (req, res) => {
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-    if (!decoded.isRefreshToken) {
+    if (!decoded.isRefreshToken && decoded.purpose !== 'refresh') {
       throw new Error('Invalid token type.');
     }
 

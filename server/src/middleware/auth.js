@@ -9,6 +9,24 @@ const authenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Reject tokens not intended for access (email verification, refresh, or admin flow tokens)
+    if (
+      decoded.isRefreshToken ||
+      decoded.purpose === 'email_verification' ||
+      decoded.purpose === 'refresh' ||
+      decoded.adminFlow ||
+      (decoded.purpose && decoded.purpose !== 'access')
+    ) {
+      res.clearCookie('token');
+      return res.status(401).json({ success: false, message: 'Invalid token purpose.' });
+    }
+
+    if (!decoded.id) {
+      res.clearCookie('token');
+      return res.status(401).json({ success: false, message: 'Invalid token payload.' });
+    }
+
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
 
     if (!result.rows.length) {
@@ -47,6 +65,19 @@ const optionalAuth = async (req, res, next) => {
     if (!token) return next();
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Skip if token is not an access token
+    if (
+      decoded.isRefreshToken ||
+      decoded.purpose === 'email_verification' ||
+      decoded.purpose === 'refresh' ||
+      decoded.adminFlow ||
+      (decoded.purpose && decoded.purpose !== 'access') ||
+      !decoded.id
+    ) {
+      return next();
+    }
+
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
 
     if (result.rows.length) {
