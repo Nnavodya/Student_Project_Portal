@@ -330,20 +330,48 @@ export default function ProjectDetailPage() {
                   </div>
                 )}
 
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                   {comments.length === 0 ? (
                     <p className="text-gray-500">No comments yet.</p>
                   ) : (
                     comments.map((comment) => (
-                      <div key={comment.id} className="bg-white border border-gray-100 rounded-xl p-4">
+                      <div
+                        key={comment.id}
+                        className="bg-white border border-gray-100 rounded-xl p-4"
+                      >
                         <div className="flex items-center justify-between">
                           <Link to={`/profile/${comment.user_id}`} className="font-medium hover:text-green-600 transition-colors">
                             {comment.author_name}
                           </Link>
-                          {comment.is_private && <span className="px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 rounded-full">Private</span>}
+                          <div className="flex items-center gap-2">
+                            {comment.is_private && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 rounded-full">
+                                Private
+                              </span>
+                            )}
+                            {user && (user.id === comment.user_id || user.role === 'admin') && (
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm('Delete this comment?')) return;
+                                  try {
+                                    await api.delete(`/projects/${id}/comments/${comment.id}`);
+                                    setComments((prev) => prev.filter((c) => c.id !== comment.id));
+                                    toast.success('Comment deleted.');
+                                  } catch {
+                                    toast.error('Failed to delete comment.');
+                                  }
+                                }}
+                                className="text-xs text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
                         </div>
 
-                        <p className="text-gray-600 mt-2">{comment.content}</p>
+                        <p className="text-gray-600 mt-2">
+                          {comment.content}
+                        </p>
                       </div>
                     ))
                   )}

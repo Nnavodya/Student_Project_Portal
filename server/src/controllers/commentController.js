@@ -18,9 +18,9 @@ const getProjectComments = async (req, res) => {
     if (!projectResult.rows.length) {
       return res.status(404).json({ success: false, message: 'Project not found.' });
     }
-    const projectOwnerId = projectResult.rows[0].user_id;
 
     const currentUserId = req.user ? req.user.id : null;
+    const isAdmin = req.user ? req.user.role === 'admin' : false;
 
     const result = await pool.query(
       `SELECT n.id, n.message AS content, n.created_at, u.name AS author_name, u.profile_pic AS author_pic, u.role AS author_role, n.actor_id AS user_id, n.is_private
@@ -33,10 +33,14 @@ const getProjectComments = async (req, res) => {
 
     let comments = result.rows;
 
+    // SECURITY FIX: private comments are visible ONLY to their author or an
+    // admin — matches the documented rule above. Project owner no longer
+    // gets special-cased access (they weren't supposed to per the docstring),
+    // and admins are now correctly included (previously missing entirely).
     comments = comments.filter(c => {
       if (!c.is_private) return true;
       if (currentUserId === c.user_id) return true;
-      if (currentUserId === projectOwnerId) return true;
+      if (isAdmin) return true;
       return false;
     });
 
@@ -105,7 +109,7 @@ const createComment = async (req, res) => {
  */
 const deleteComment = async (req, res) => {
   try {
-    const { commentId } = req.params;
+    const { id, commentId } = req.params;
 
     const existing = await pool.query("SELECT * FROM notifications WHERE id = $1 AND type = 'comment'", [commentId]);
     if (!existing.rows.length) {
@@ -113,6 +117,16 @@ const deleteComment = async (req, res) => {
     }
 
     const comment = existing.rows[0];
+
+    // SECURITY FIX (IDOR): verify the comment actually belongs to the
+    // project specified in the URL, not just that a comment with this ID
+    // exists somewhere. Without this, a user could pass any commentId in
+    // combination with a project :id they don't own/control and still
+    // delete a comment that belongs to a completely different project.
+    if (comment.project_id !== parseInt(id, 10)) {
+      return res.status(404).json({ success: false, message: 'Comment not found.' });
+    }
+
     const isOwner = comment.actor_id === req.user.id;
     const isAdmin = req.user.role === 'admin';
     if (!isOwner && !isAdmin) {

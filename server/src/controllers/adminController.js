@@ -5,11 +5,15 @@ const emitter = require('../events/eventEmitter');
 // Lazy module initialization: update notification constraint to support admin notification types
 (async () => {
   try {
-    // Safely update notification constraint to support user_registered and admin_removal
+    // SECURITY/BUG FIX: this constraint was missing 'comment', 'admin_edit',
+    // 'admin_delete', and 'admin_hide' — every notification type actually
+    // used elsewhere in this codebase must be listed here, or inserts for
+    // those types fail on every server restart (this constraint re-applies
+    // on every startup).
     await pool.query(`
       ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
       ALTER TABLE notifications ADD CONSTRAINT notifications_type_check 
-        CHECK (type IN ('like', 'follow', 'project_created', 'user_registered', 'admin_removal'));
+        CHECK (type IN ('like', 'follow', 'comment', 'project_created', 'user_registered', 'admin_removal', 'admin_edit', 'admin_delete', 'admin_hide'));
     `);
     console.log('[AdminController] Lazy initialization complete.');
   } catch (err) {
