@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const emitter = require('../events/eventEmitter');
@@ -68,13 +69,24 @@ const handleGoogleCallback = async (req, res) => {
 //
 // The client uses this token as ?t=TOKEN when it redirects to /auth/admin/google,
 // so we can verify the key check actually happened before initiating the OAuth.
+
+
+// SECURITY FIX: constant-time comparison prevents timing side-channel
+// attacks that could otherwise leak the admin secret key's length/content
+// by measuring how long the comparison takes to fail.
+const safeCompare = (a, b) => {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+};
+
 const validateAdminKey = (req, res) => {
   const { secretKey } = req.body;
 
-  if (!secretKey || secretKey !== process.env.ADMIN_SECRET_KEY) {
+  if (!secretKey || !process.env.ADMIN_SECRET_KEY || !safeCompare(secretKey, process.env.ADMIN_SECRET_KEY)) {
     return res.status(403).json({ success: false, message: 'Invalid admin secret key.' });
   }
-
   // Short-lived (3 minutes) token — just proves the key was entered
   const adminFlowToken = jwt.sign({ adminFlow: true }, process.env.JWT_SECRET, {
     expiresIn: '3m',
