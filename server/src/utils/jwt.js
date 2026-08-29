@@ -5,8 +5,13 @@ const signToken = (userId) =>
     expiresIn: process.env.JWT_EXPIRES_IN || '15m',
   });
 
-const signRefreshToken = (userId) =>
-  jwt.sign({ id: userId, isRefreshToken: true, purpose: 'refresh' }, process.env.JWT_SECRET, {
+// SECURITY FIX: refresh tokens now carry the user's current token_version.
+// On refresh, the server compares this against the DB value — if they don't
+// match (because logout/revocation bumped the DB version), the token is
+// rejected even though it hasn't expired yet. This makes refresh tokens
+// revocable server-side instead of being unconditionally valid for 24h.
+const signRefreshToken = (userId, tokenVersion = 0) =>
+  jwt.sign({ id: userId, isRefreshToken: true, purpose: 'refresh', tokenVersion }, process.env.JWT_SECRET, {
     expiresIn: '24h',
   });
 

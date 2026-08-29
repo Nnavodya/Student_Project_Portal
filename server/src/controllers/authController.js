@@ -17,7 +17,7 @@ const escapeHtml = (unsafe) => {
 };
 
 // ── Google OAuth callback (shared by all flows) ──────────────────────────────
-const handleGoogleCallback = (req, res) => {
+const handleGoogleCallback = async (req, res) => {
   // Passport uses callback-style auth in the route, so req.user is set on success.
   // On failure, req.user is undefined/false and req.authInfo has the reason.
   const user = req.user;
@@ -40,8 +40,11 @@ const handleGoogleCallback = (req, res) => {
     );
   }
 
+  const tvRes = await pool.query('SELECT token_version FROM users WHERE id = $1', [user.id]);
+  const tokenVersion = tvRes.rows[0]?.token_version || 0;
+
   const token = signToken(user.id);
-  const refreshToken = signRefreshToken(user.id);
+  const refreshToken = signRefreshToken(user.id, tokenVersion);
   setTokenCookies(res, token, refreshToken);
 
   // Students who haven't added their student ID yet
@@ -100,7 +103,22 @@ const requireAdminFlowToken = (req, res, next) => {
 };
 
 // ── Logout ───────────────────────────────────────────────────────────────────
-const logout = (req, res) => {
+// SECURITY FIX: logout now bumps the user's token_version in the DB. Any
+// refresh token issued before this point (even if stolen and not expired)
+// carries the OLD tokenVersion and will be rejected by /auth/refresh from
+// now on. Without this, logout only cleared cookies client-side — a stolen
+// refresh token remained valid for its full 24h lifetime regardless.
+const logout = async (req, res) => {
+  try {
+    if (req.user?.id) {
+      await pool.query(
+        'UPDATE users SET token_version = token_version + 1 WHERE id = $1',
+        [req.user.id]
+      );
+    }
+  } catch (err) {
+    console.error('[logout] token_version bump failed:', err.message);
+  }
   clearTokenCookies(res);
   res.json({ success: true, message: 'Logged out successfully.' });
 };
@@ -298,7 +316,7 @@ const loginLocal = async (req, res) => {
     }
 
     const token = signToken(user.id);
-    const refreshToken = signRefreshToken(user.id);
+    const refreshToken = signRefreshToken(user.id, user.token_version || 0);
     setTokenCookies(res, token, refreshToken);
 
     res.json({
@@ -337,8 +355,17 @@ const refresh = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Your account has been suspended.' });
     }
 
+    // SECURITY FIX: reject refresh tokens whose embedded tokenVersion no
+    // longer matches the DB. This is what actually makes logout/revocation
+    // effective — see the comment on the logout() function above.
+    const dbTokenVersion = user.token_version || 0;
+    if ((decoded.tokenVersion || 0) !== dbTokenVersion) {
+      clearTokenCookies(res);
+      return res.status(401).json({ success: false, message: 'Session has been revoked. Please log in again.' });
+    }
+
     const newToken = signToken(user.id);
-    const newRefreshToken = signRefreshToken(user.id);
+    const newRefreshToken = signRefreshToken(user.id, dbTokenVersion);
     
     setTokenCookies(res, newToken, newRefreshToken);
 
