@@ -1,8 +1,12 @@
 const { Pool } = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
+// SECURITY FIX: TLS certificate validation is now ON by default
+// (rejectUnauthorized: true). It can only be disabled by explicitly setting
+// DB_REJECT_UNAUTHORIZED=false in .env — never hardcoded off. Disabling
+// validation unconditionally exposes DB connections to MITM attacks.
 const poolConfig = process.env.DATABASE_URL 
-  ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+  ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: process.env.DB_REJECT_UNAUTHORIZED === 'false' ? false : true } }
   : {
       host: process.env.DB_HOST,
       port: Number(process.env.DB_PORT) || 5432,
@@ -22,7 +26,7 @@ async function run() {
     await pool.query('ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;');
     
     // 3. Add the new comprehensive type check constraint
-    await pool.query("ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK (type IN ('like', 'follow', 'project_created', 'comment', 'user_registered', 'admin_action', 'admin_edit', 'admin_delete', 'admin_hide'));");
+    await pool.query("ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK (type IN ('like', 'follow', 'project_created', 'comment', 'user_registered', 'admin_action', 'admin_edit', 'admin_delete', 'admin_hide', 'admin_removal'));");
     console.log('Successfully updated notifications_type_check constraint with all types.');
     
   } catch (err) {

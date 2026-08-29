@@ -22,6 +22,17 @@ const poolConfig = process.env.DATABASE_URL
       password: process.env.DB_PASSWORD,
     };
 const pool = new Pool(poolConfig);
+// SECURITY FIX: TLS certificate validation is now ON by default. Only
+// disable it via DB_REJECT_UNAUTHORIZED=false in .env — never hardcoded.
+const poolConfig = process.env.DATABASE_URL 
+  ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: process.env.DB_REJECT_UNAUTHORIZED === 'false' ? false : true } }
+  : {
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    };
 
 const confirm = () =>
   new Promise((resolve) => {
