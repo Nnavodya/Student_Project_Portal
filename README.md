@@ -1,120 +1,161 @@
-# UOK Connect
+# UOK Connect — Student Project Portal
 
-🔗 **[Live Demo / Deployed App](https://student-project-portal-mu6m.vercel.app/)**
+A student project portfolio showcase platform for the University of Kelaniya, Faculty of Computing. Students publish their academic and personal projects; recruiters discover emerging tech talent.
 
-> An academic project serving as a student portfolio showcase portal for the University of Kelaniya.
+> **Note on this fork:** This version has been enhanced as part of an academic assignment on Secure Web Application Development. It includes OWASP Top 10 vulnerability remediation and OIDC-based authentication (Google OAuth 2.0) on top of the original UOK Connect codebase.
 
-**UOK Connect** bridges the gap between students and the industry. It allows students to publish their academic and personal projects, while recruiters can easily discover emerging tech talent. 
+---
 
 ## 🚀 Tech Stack
 
-- **Frontend**: React 18, Vite, Tailwind CSS v4, Zustand (State Management)
-  - *Libraries:* React Hook Form + Zod (Form Validation), Framer Motion (Animations), Axios, React Router v7
-- **Backend**: Node.js, Express 5, Passport.js (Google OAuth 2.0)
-  - *Libraries:* Helmet & express-rate-limit (Security), express-validator, JWT & bcryptjs (Auth), cookie-parser
-- **Database**: PostgreSQL (hosted on Neon), `connect-pg-simple` (Session Store)
-- **File Storage**: Cloudinary (Image CDN), Multer (In-memory uploads)
-- **Deployment**: Vercel (Frontend & Backend)
+- **Frontend:** React 18, Vite, Tailwind CSS v4, Zustand
+- **Backend:** Node.js, Express 5, Passport.js (Google OAuth 2.0)
+- **Database:** PostgreSQL
+- **Auth:** JWT (access + refresh tokens) with token-version-based revocation, HMAC-based anti-CSRF tokens
+- **File Storage:** Cloudinary
 
-## ✨ Key Features & Engineering Decisions
+---
 
-- **Role-Based Access Control**: Tailored workflows and UI/UX for Students, Recruiters, and Admins.
-- **Secure Authentication**: Implemented Single Sign-On (SSO) using Google OAuth 2.0 with session tokens stored in secure, `HTTP-only` cookies to prevent XSS attacks.
-- **Optimized Image Processing**: Utilized Multer for in-memory uploads, streaming buffers directly to Cloudinary without writing to the local disk, improving performance and deployment compatibility.
-- **Asynchronous Event Architecture**: Decoupled core request logic from side-effects (like generating notifications) using Node's native `EventEmitter`, ensuring fast API response times.
+## 🔒 Security Enhancements
 
-## 🏗 System Architecture
+This fork addresses the following OWASP Top 10 issues found during a security audit:
 
-```mermaid
-graph TD
-    %% User Interaction
-    User((User / Browser)) -->|Interacts| ClientApp
+| # | Category | Fix |
+|---|---|---|
+| 1 | CSRF (A01) | HMAC-signed anti-CSRF tokens on all state-changing routes |
+| 2 | Broken Authentication (A07) | JWT `purpose` claim validation — rejects email-verification/refresh tokens used as access tokens |
+| 3 | XSS (A03) | HTML-escaped email templates; `http(s)`-only URL validation before rendering links |
+| 4 | Broken Access Control / IDOR (A01) | Comment deletion now verifies the comment belongs to the specified project |
+| 5 | Broken Authentication (A07) | Refresh tokens carry a `token_version`; logout revokes all outstanding refresh tokens server-side |
+| 6 | Cryptographic Failures (A02) | TLS certificate validation enabled by default in DB connection scripts |
+| 7 | Identification Failures (A07) | Constant-time (`crypto.timingSafeEqual`) comparison for the admin secret key |
+| 8 | Sensitive Data Exposure (A02) | Password hash stripped from `req.user` before use in controllers/events |
+| 9 | Security Misconfiguration (A05) | `express-validator` input validation added to admin project routes |
+| 10 | Security Misconfiguration (A05) | Content-Security-Policy headers added via Helmet |
 
-    %% Frontend Layer
-    subgraph Frontend [Client - React / Vite]
-        ClientApp[React Components / Pages]
-        StateStore[Zustand State Management]
-        Axios[Axios API Client]
-        ClientApp <--> StateStore
-        ClientApp <--> Axios
-    end
+---
 
-    %% Backend Layer
-    subgraph Backend [Server - Node.js / Express]
-        Router(Express Router)
-        AuthMiddleware[Passport.js / Auth Middleware]
-        UploadMiddleware[Multer Memory Storage]
-        Controllers[API Controllers]
-        EventEmitter[Node EventEmitter]
-        
-        Router --> AuthMiddleware
-        Router --> UploadMiddleware
-        Router --> Controllers
-        Controllers -.->|Emits async events| EventEmitter
-    end
+## 📋 Prerequisites
 
-    %% External Services
-    subgraph External [External Services]
-        Google[Google OAuth 2.0 API]
-        Cloudinary[Cloudinary Storage / CDN]
-    end
+- Node.js (LTS)
+- PostgreSQL (local or cloud, e.g. Neon)
+- A Google Cloud project with an OAuth 2.0 Client ID (Web application)
+- A Cloudinary account (free tier is fine)
 
-    %% Database Layer
-    subgraph DB [Database Layer]
-        Postgres[(PostgreSQL)]
-        SessionStore[(connect-pg-simple Session Store)]
-    end
+---
 
-    %% Connections across layers
-    Axios <-->|REST API JSON \n HTTP/Cookies| Router
-    
-    AuthMiddleware <-->|OAuth Flow| Google
-    AuthMiddleware <-->|Manage Sessions| SessionStore
-    AuthMiddleware <-->|Verify/Create Users| Postgres
+## ⚙️ Setup Instructions
 
-    UploadMiddleware -->|Passes req.file.buffer| Controllers
-    Controllers -->|Pipes Image Buffer| Cloudinary
-    Cloudinary -.->|Returns Secure Image URL| Controllers
+### 1. Clone the repository
 
-    Controllers <-->|CRUD Operations| Postgres
-    EventEmitter -->|Async writes notifications| Postgres
-    
-    %% Force External Services to be on the same level as Database Layer
-    EventEmitter ~~~ Google
-    EventEmitter ~~~ Cloudinary
-    
-    %% Styling
-    classDef frontend fill:#e1f5fe,stroke:#03a9f4,stroke-width:2px,color:#000000;
-    classDef backend fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000000;
-    classDef database fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000000;
-    classDef external fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#000000;
-    
-    class ClientApp,StateStore,Axios frontend;
-    class Router,AuthMiddleware,UploadMiddleware,Controllers,EventEmitter backend;
-    class Postgres,SessionStore database;
-    class Google,Cloudinary external;
+```bash
+git clone https://github.com/Nnavodya/Student_Project_Portal.git
+cd Student_Project_Portal
 ```
 
-## 💻 Local Setup
+### 2. Install dependencies
 
-### 1. Environment Configuration
-Create `.env` files in both the `client/` and `server/` directories using the provided templates.
-- **Server (`server/.env`)**: Requires your Neon PostgreSQL URL, Google OAuth credentials, and Cloudinary API keys.
-- **Client (`client/.env`)**: Set `VITE_API_URL=http://localhost:5001`.
+```bash
+cd server && npm install
+cd ../client && npm install
+```
 
-### 2. Start the Application
+### 3. Configure environment variables
 
-**Run the Backend (Port 5001):**
+Copy the example files and fill in your own values:
+
 ```bash
 cd server
-npm install
-npm run db:setup  # Initializes the Neon PostgreSQL tables
+copy .env.example .env   # Windows
+# cp .env.example .env   # macOS/Linux
+```
+
+```bash
+cd ../client
+copy .env.example .env
+```
+
+**`server/.env` — required variables:**
+
+| Variable | Description |
+|---|---|
+| `PORT` | Backend port (default `5001`) |
+| `NODE_ENV` | `development` locally |
+| `CLIENT_URL` | Frontend URL, e.g. `http://localhost:5173` |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Your PostgreSQL connection details |
+| `SESSION_SECRET`, `JWT_SECRET` | Long random strings (32+ chars). Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `JWT_EXPIRES_IN` | Access token lifetime, e.g. `15m` |
+| `ADMIN_SECRET_KEY` | A secret passphrase required to access the admin login flow |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | From Google Cloud Console → APIs & Services → Credentials |
+| `GOOGLE_CALLBACK_URL` | Must match the redirect URI registered in Google Cloud Console, e.g. `http://localhost:5001/api/auth/google/callback` |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | From your Cloudinary dashboard |
+
+**`client/.env`:**
+
+| Variable | Description |
+|---|---|
+| `VITE_API_URL` | Backend API base URL, e.g. `http://localhost:5001/api` |
+
+> ⚠️ **Never commit your `.env` files.** They are already listed in `.gitignore`.
+
+### 4. Set up the database
+
+Create the database, then run the setup script (creates all tables):
+
+```bash
+psql -U postgres -c "CREATE DATABASE uok_connect;"
+cd server
+node scripts/setupDb.js
+```
+
+If you're updating an existing/older database, also run:
+
+```bash
+node scripts/migrate.js
+```
+
+### 5. Create an admin account (optional)
+
+```bash
+node scripts/create_admin.js youradmin@email.com YourPassword123
+```
+
+Admins must sign in through `/admin/auth` (secret key + Google Sign-in), not the regular login page.
+
+### 6. Run the application
+
+In two separate terminals:
+
+```bash
+# Terminal 1 — backend
+cd server
 npm run dev
 ```
 
-**Run the Frontend (Port 5173):**
 ```bash
+# Terminal 2 — frontend
 cd client
-npm install
 npm run dev
 ```
+
+Visit `http://localhost:5173`.
+
+---
+
+## 🗄️ Database Creation Script
+
+See [`server/scripts/setupDb.js`](server/scripts/setupDb.js) for the full schema creation script, and [`server/scripts/migrate.js`](server/scripts/migrate.js) for incremental migrations.
+
+---
+
+## 👥 Roles
+
+- **Student** — publish and manage their own projects
+- **Recruiter** — browse published projects and students
+- **Admin** — manage all users and projects (accessed via `/admin/auth`)
+
+---
+
+## 📄 License
+
+Academic project — Faculty of Computing, University of Kelaniya.
