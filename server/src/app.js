@@ -24,7 +24,25 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // ── Security ──────────────────────────────────────────────────────────────────
-app.use(helmet({ crossOriginEmbedderPolicy: false }));
+// SECURITY FIX: added a Content Security Policy. This restricts which
+// origins scripts, styles, images, and connections can load from,
+// mitigating the impact of any XSS that might slip through despite the
+// other fixes (defense in depth). Adjusted to allow Google/Cloudinary
+// assets and API calls this app actually needs.
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com', 'https://lh3.googleusercontent.com'],
+      connectSrc: ["'self'", process.env.CLIENT_URL].filter(Boolean),
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+  },
+}));
 
 app.use(cors({
   origin: process.env.CLIENT_URL,
