@@ -41,6 +41,12 @@ const authenticate = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Your account has been suspended.' });
     }
 
+    // SECURITY FIX: strip the password hash before attaching the user
+    // object to req.user. Previously the full row (including the bcrypt
+    // hash) was attached and passed downstream to event emitters and
+    // controllers, increasing the risk of it leaking into logs or
+    // accidentally being sent back in an API response.
+    delete user.password;
     req.user = user;
     next();
   } catch (err) {
@@ -81,7 +87,10 @@ const optionalAuth = async (req, res, next) => {
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
 
     if (result.rows.length) {
-      req.user = result.rows[0];
+      const user = result.rows[0];
+      // SECURITY FIX: same as above — never attach the password hash.
+      delete user.password;
+      req.user = user;
     }
   } catch {
     // Invalid token — proceed without auth
