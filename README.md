@@ -32,6 +32,7 @@ This fork addresses the following OWASP Top 10 issues found during a security au
 | 8 | Sensitive Data Exposure (A02) | Password hash stripped from `req.user` before use in controllers/events |
 | 9 | Security Misconfiguration (A05) | `express-validator` input validation added to admin project routes |
 | 10 | Security Misconfiguration (A05) | Content-Security-Policy headers added via Helmet |
+| 11 | Security Misconfiguration | HTTPS configured for local development with self-signed certificate |
 
 ---
 
@@ -122,7 +123,25 @@ node scripts/create_admin.js youradmin@email.com YourPassword123
 
 Admins must sign in through `/admin/auth` (secret key + Google Sign-in), not the regular login page.
 
-### 6. Run the application
+### 6. Configure HTTPS for local development (optional but recommended)
+
+This project is configured to run the backend over HTTPS locally using a self-signed certificate.
+
+```bash
+cd server
+npm install --save-dev selfsigned
+node gencert.js
+```
+
+This creates `key.pem` and `cert.pem` in the `server/` folder. When these files are present, the backend automatically starts on `https://localhost:5001` instead of plain HTTP. The frontend talks to the backend through Vite's dev-server proxy (see `client/vite.config.js`), so no separate certificate is needed on the frontend, and no browser same-site issues arise from mixing HTTP and HTTPS origins.
+
+The first time you visit `https://localhost:5001/api/health` directly in your browser, you'll see a certificate warning — this is expected for a self-signed development certificate. Click "Advanced" → "Proceed to localhost (unsafe)" to accept it for local testing.
+
+**Note:** `key.pem`/`cert.pem` are private keys and are excluded via `.gitignore` — never commit them.
+
+In production, TLS should be terminated by the hosting platform in front of the application rather than by the Express server itself.
+
+### 7. Run the application
 
 In two separate terminals:
 
