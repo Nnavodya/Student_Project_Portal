@@ -1,6 +1,8 @@
 require('dotenv').config();
 require('./events/notificationHandler'); // register event listeners
 
+const https = require('https');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -121,11 +123,30 @@ app.use((err, req, res, next) => {
   });
 });
 
+// HTTPS configuration — the assignment requires the application to be
+// configured to run with HTTPS. In local development we use a self-signed
+// certificate (see server/gencert.js); in production, TLS is normally
+// terminated by the hosting platform (e.g. Vercel), so we fall back to
+// plain HTTP behind that proxy.
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`\n🚀 UOK Connect server running on http://localhost:${PORT}`);
-    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
-  });
+  const keyPath = require('path').join(__dirname, '../key.pem');
+  const certPath = require('path').join(__dirname, '../cert.pem');
+
+  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    const httpsOptions = {
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath),
+    };
+    https.createServer(httpsOptions, app).listen(PORT, () => {
+      console.log(`\n🔒 UOK Connect server running on https://localhost:${PORT}`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
+    });
+  } else {
+    app.listen(PORT, () => {
+      console.log(`\n🚀 UOK Connect server running on http://localhost:${PORT} (no cert.pem/key.pem found, falling back to HTTP)`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
+    });
+  }
 }
 
 module.exports = app;

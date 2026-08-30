@@ -37,6 +37,7 @@
     "uuid": "^14.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "selfsigned": "^5.5.0"
   }
 }
