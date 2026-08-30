@@ -57,3 +57,4 @@ uploads/
 *.temp
 
 *package-lock.json
+*.pem
